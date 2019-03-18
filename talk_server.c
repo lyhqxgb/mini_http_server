@@ -14,6 +14,8 @@ void show_error(char *msg)
     exit(errno);
 }
 
+int readLine(int socket, char *buf, int size);
+
 int main(void)
 {
     int server_socket, res;
@@ -42,21 +44,27 @@ int main(void)
         char talk2[] = "Why do you like C++?";
         char answer2[] = "Because I can use it to write programs.";
         char answer3[] = "And you?";
+        int status = 1; //表示对话仍在继续
 
         client_sock = accept(server_socket, (struct sockaddr *) &client_addr, &addrlen);
         if(client_sock == -1) show_error("accept");
 
-        len = read(client_sock, buf, sizeof(buf) - 1);
-        if(len == -1) show_error("len");
-        buf[len] = '\0';
-        printf("receive[%d]: %s\n", len, buf);
+        // while(status){
+            len = readLine(client_sock, buf, sizeof(buf) - 1);
+            if(len == -1) show_error("len");
+            buf[len] = '\0';
+            printf("receive[%d]: %s\n", len, buf);
 
-        if(0 == strcmp(buf, talk1)){
-            write(client_sock, answer1, sizeof(answer1));
-        } else if(0 == strcmp(buf, talk2)) {
-            write(client_sock, answer2, sizeof(answer2));
-            write(client_sock, answer3, sizeof(answer3));
-        }
+            if(0 == strcmp(buf, talk1)){
+                write(client_sock, answer1, sizeof(answer1));
+            } else if(0 == strcmp(buf, talk2)) {
+                write(client_sock, answer2, sizeof(answer2));
+                write(client_sock, answer3, sizeof(answer3));
+            }else{
+                // status = 0;
+            }
+        // }
+        
 
         close(client_sock);
 
@@ -64,4 +72,24 @@ int main(void)
 
     close(socket);
 
+}
+
+int readLine(int socket, char *buf, int size)
+{
+    int i;
+    char c;
+
+    for(i = 0; i < size; i++)
+    {
+        c = 0;
+        read(socket, &c, 1);
+        if(c && (c == '\n' || c == '\r')){
+            break;
+        }
+        buf[i] = c;
+    }
+    buf[i] = '\0';
+
+    return i;
+    
 }
