@@ -24,6 +24,10 @@ int main(void)
     server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if(server_socket == -1) show_error("socket");
 
+    int on = 1;
+    res = setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int));
+    if(res < 0) show_error("setsockopt");
+
     bzero(&sock_addr, sizeof(sock_addr));
     sock_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     sock_addr.sin_port = htons(TALK_PORT);
@@ -49,7 +53,7 @@ int main(void)
         client_sock = accept(server_socket, (struct sockaddr *) &client_addr, &addrlen);
         if(client_sock == -1) show_error("accept");
 
-        // while(status){
+        while(status){
             len = readLine(client_sock, buf, sizeof(buf) - 1);
             if(len == -1) show_error("len");
             buf[len] = '\0';
@@ -63,7 +67,7 @@ int main(void)
             }else{
                 // status = 0;
             }
-        // }
+        }
         
 
         close(client_sock);
