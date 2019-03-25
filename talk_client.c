@@ -38,11 +38,14 @@ int main(void)
 
     write(sock, buf, strlen(buf));
 
-    res = read(sock, buf, sizeof(buf)-1);
-    if(res > 0){
+    while( res = read(sock, buf, sizeof(buf)-1) ){
         printf("receive[%d]: %s\n", res, buf);
+        printf("请输入要发送的内容\n");
+        fgets(buf, sizeof(buf), stdin);
+        write(sock, buf, strlen(buf));
     }
 
+    printf("server closed.\n");
     close(sock);
 
     return 0;

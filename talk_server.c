@@ -46,16 +46,20 @@ int main(void)
         char talk1[] = "Do you like C++?";
         char answer1[] = "Yes, I do.";
         char talk2[] = "Why do you like C++?";
-        char answer2[] = "Because I can use it to write programs.";
-        char answer3[] = "And you?";
+        char answer2[] = "Because I can use it to write programs.\nAnd you?";
         int status = 1; //表示对话仍在继续
 
+        addrlen = sizeof(client_addr);
         client_sock = accept(server_socket, (struct sockaddr *) &client_addr, &addrlen);
         if(client_sock == -1) show_error("accept");
 
         while(status){
             len = readLine(client_sock, buf, sizeof(buf) - 1);
-            if(len == -1) show_error("len");
+            if(len < 1){
+                //读取结束
+                status = 0;
+                break;
+            }
             buf[len] = '\0';
             printf("receive[%d]: %s\n", len, buf);
 
@@ -63,13 +67,16 @@ int main(void)
                 write(client_sock, answer1, sizeof(answer1));
             } else if(0 == strcmp(buf, talk2)) {
                 write(client_sock, answer2, sizeof(answer2));
-                write(client_sock, answer3, sizeof(answer3));
+                printf("start to end\n");
+                status = 0;
+
             }else{
-                // status = 0;
+                write(client_sock, buf, len);
+                status = 0;
             }
         }
         
-
+        printf("close socket\n");
         close(client_sock);
 
     }
@@ -82,11 +89,16 @@ int readLine(int socket, char *buf, int size)
 {
     int i;
     char c;
+    int len; //read方法读取到的长度
 
     for(i = 0; i < size; i++)
     {
         c = 0;
-        read(socket, &c, 1);
+        len = read(socket, &c, 1);
+        if(len == 0){
+            //说明会话结束
+            return len;
+        }
         if(c && (c == '\n' || c == '\r')){
             break;
         }
