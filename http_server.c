@@ -14,6 +14,8 @@ void print_err(char *msg)
     exit(errno);
 }
 
+int get_line(int socket, char *buff);
+
 int main(void)
 {
     int server_socket = 0;
@@ -44,11 +46,54 @@ int main(void)
         int client_socket = 0;
         struct sockaddr_in client_addr;
         socklen_t addr_len;
+        char ip_addr[20] = {0};
+        char line[200];
+
         client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &addr_len);
         if(res != 0) print_err("accept");
+
+        //打印ip地址
+        printf("ip: %s, port: %d\n", inet_ntop(AF_INET, &client_addr.sin_addr.s_addr, ip_addr, sizeof(ip_addr)), ntohs(client_addr.sin_port));
+
+        //打印http请求
+        res = get_line(client_socket, line);
+        printf("receive[%d]: %s\n", res, line);
+
+        close(client_socket);
     }
 
     close(server_socket);
 
     return 0;
+}
+
+
+/**
+ * 读取一行信息
+ * @param buff 保存读取的内容
+ * @return 读取的字符数
+ */
+int get_line(int socket, char *buff)
+{
+    int count = 0; //读取的字符数
+    char curr; //当前读取到的字符
+    char prev; //前一个字符
+    int res = 0; //read的返回值
+    int i = 0; //buff的当前位置
+
+    memset(buff, '\0', sizeof(buff));
+    res = read(socket, &prev, 1);
+    if(!res) return count;
+    buff[i++] = prev;
+    count++;
+
+    do{
+        res = read(socket, &curr, 1);
+        if(!res) return count;
+        buff[i++] = curr;
+        prev = curr;
+        count++;
+    }while(prev != '\r' && curr != '\n');
+    
+    return count;
 }
