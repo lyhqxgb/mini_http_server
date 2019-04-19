@@ -8,6 +8,7 @@
 #include <ctype.h>
 
 #define SERVER_PORT 80
+#define ROOT_PATH "/home/leo/share/mini_http_server"
 
 void print_err(char *msg)
 {
@@ -17,7 +18,7 @@ void print_err(char *msg)
 
 int get_head_line(int socket, char *buff, int len);
 
-int get_method(char *line, char * method, unsigned int len);
+int get_line_content(char *line, char *buff, unsigned int len, int sensitive);
 
 void request_501(int client_socket);
 
@@ -26,6 +27,7 @@ int main(void)
     int server_socket = 0;
     struct sockaddr_in sock_addr;
     int res;
+    char root[] = ROOT_PATH;
 
     server_socket = socket(AF_INET, SOCK_STREAM, 0);
     if(server_socket == -1){
@@ -54,6 +56,9 @@ int main(void)
         char ip_addr[20] = {0};
         char line[200]; //记录一行请求信息
         char method[30]; //请求方法
+        char url[200]; //请求的url
+        int p_line = 0; //line读取到的当前位置
+        char url_path[200] = {0}; //保存url的绝对路径
 
         memset(&client_addr, 0, sizeof(client_addr));
         client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &addr_len);
@@ -70,9 +75,15 @@ int main(void)
         //读取请求方法
         res = get_head_line(client_socket, line, (int)sizeof(line));
         if(!res) print_err("no head line");
-        get_method(line, method, sizeof(method));
+        res = get_line_content(line, method, sizeof(method), 0);
+        p_line += res;
         if(strcmp(method, "GET") == 0){
-            printf("it is!\n");
+            //读取请求的url
+            res = get_line_content(line + p_line, url, sizeof(url), 1);
+            p_line += res;
+            strcpy(url_path, root);
+            strcat(url_path, url);
+            printf("url_path: %s\n", url_path);
         }else{
             request_501(client_socket);
         }
@@ -125,23 +136,32 @@ int get_head_line(int socket, char *buff, int len)
 
 
 /**
- * 获取请求方法
+ * 获取一行中的内容
+ * @param char *line
+ * @param char *buff
+ * @param unsigned int len
+ * @param int sensitve
+ * @return int
  */
-int get_method(char *line, char * method, unsigned int len)
+int get_line_content(char *line, char *buff, unsigned int len, int sensitive)
 {
     int i;
     char curr;
     int count = 0;
 
     //清空buff
-    memset(method, '\0', len);
+    memset(buff, '\0', len);
 
     for(i = 0; i < len; i++){
         count++;
         curr = line[i];
         if(curr == '\r' || curr == '\n') continue;
         if(curr == ' ') break;
-        method[i] = toupper(curr);
+        if(!sensitive){
+            buff[i] = toupper(curr);
+        }else{
+            buff[i] = curr;
+        }
     }
 
     return count;
