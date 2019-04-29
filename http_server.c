@@ -3,6 +3,8 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <arpa/inet.h>
 #include <errno.h>
 #include <ctype.h>
@@ -21,6 +23,8 @@ int get_head_line(int socket, char *buff, int len);
 int get_line_content(char *line, char *buff, unsigned int len, int sensitive);
 
 void request_501(int client_socket);
+
+void request_404(int client_socket);
 
 int main(void)
 {
@@ -59,6 +63,7 @@ int main(void)
         char url[200]; //请求的url
         int p_line = 0; //line读取到的当前位置
         char url_path[200] = {0}; //保存url的绝对路径
+        struct stat file_info;
 
         memset(&client_addr, 0, sizeof(client_addr));
         client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &addr_len);
@@ -84,6 +89,13 @@ int main(void)
             strcpy(url_path, root);
             strcat(url_path, url);
             printf("url_path: %s\n", url_path);
+
+            //读取文件信息
+            res = stat(url_path, &file_info);
+            if(res != 0){
+                //读取文件信息错误，返回404
+                request_404(client_socket);
+            }
         }else{
             request_501(client_socket);
         }
@@ -186,4 +198,32 @@ Content-Type: text/html\r\n\
 
     printf("count: %d\n", count);
     if(!count) print_err("write 501");
+}
+
+void request_404(int client_socket)
+{
+    int count;
+    const char *res_head = "HTTP/1.0 404 Method NOT FOUND\r\nContent-Type: text/html\r\n\
+\r\n\
+<HTML>\n\
+<HEAD>\n\
+<TITLE>File Not Found</TITLE>\n\
+</HEAD>\n\
+<BODY>\n\
+    <P>Server can not find file.</p>\n\
+</BODY>\n\
+</HTML>";
+
+    count = write(client_socket, res_head, strlen(res_head));
+    printf("%d \n%s", count, res_head);
+
+    // //获取body的长度
+    // sprintf(content_len, "Content-Length:%d\r\n\r\n", strlen(res_content));
+    // printf("len[%d]: %s\n", strlen(res_content), content_len);
+    // write(client_socket, content_len, strlen(content_len));
+
+    // write(client_socket, res_head, strlen(res_head));
+    // printf("%s\n", res_head);
+
+    // if(!count) print_err("write 404");
 }
