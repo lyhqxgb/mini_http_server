@@ -1,3 +1,4 @@
 echo_server
 *.out
 .vscode
+*.html
