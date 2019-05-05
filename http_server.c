@@ -26,6 +26,8 @@ void request_501(int client_socket);
 
 void request_404(int client_socket);
 
+void request_200(int client_socket, const char *path);
+
 int main(void)
 {
     int server_socket = 0;
@@ -67,7 +69,7 @@ int main(void)
 
         memset(&client_addr, 0, sizeof(client_addr));
         client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &addr_len);
-        if(res < 0) print_err("accept");
+        if(client_socket < 0) print_err("accept");
 
         //打印ip地址
         printf("ip: %s, port: %d\n", inet_ntop(AF_INET, &client_addr.sin_addr.s_addr, ip_addr, sizeof(ip_addr)), ntohs(client_addr.sin_port));
@@ -92,7 +94,9 @@ int main(void)
 
             //读取文件信息
             res = stat(url_path, &file_info);
-            if(res != 0){
+            if(res == 0){
+                request_200(client_socket, url_path);
+            }else{
                 //读取文件信息错误，返回404
                 request_404(client_socket);
             }
@@ -101,6 +105,9 @@ int main(void)
         }
 
 
+        // close(client_socket);
+        //close方法不会等输出结束，因此需要用shutdown先关闭输出，再用close关闭socket
+        shutdown(client_socket, SHUT_WR);
         close(client_socket);
     }
 
@@ -203,27 +210,52 @@ Content-Type: text/html\r\n\
 void request_404(int client_socket)
 {
     int count;
-    const char *res_head = "HTTP/1.0 404 Method NOT FOUND\r\nContent-Type: text/html\r\n\
+    const char *res = "HTTP/1.1 404 Not Found\r\n\
+Connection: keep-alive\r\n\
+Content-Type: text/html; charset=utf-8\r\n\
+Server: Leo\r\n\
 \r\n\
-<HTML>\n\
-<HEAD>\n\
-<TITLE>File Not Found</TITLE>\n\
-</HEAD>\n\
-<BODY>\n\
-    <P>Server can not find file.</p>\n\
-</BODY>\n\
+<HTML>\
+<HEAD>\
+<TITLE>File Not Found</TITLE>\
+<meta content=\"text/html; charset=utf-8\" http-equiv=\"Content-Type\">\
+</HEAD>\
+<BODY>\
+    <P>Server can not find file.</p>\
+</BODY>\
 </HTML>";
 
-    count = write(client_socket, res_head, strlen(res_head));
-    printf("%d \n%s", count, res_head);
+    write(client_socket, res, strlen(res));
+}
 
-    // //获取body的长度
-    // sprintf(content_len, "Content-Length:%d\r\n\r\n", strlen(res_content));
-    // printf("len[%d]: %s\n", strlen(res_content), content_len);
-    // write(client_socket, content_len, strlen(content_len));
+void request_200(int client_socket, const char *path)
+{
+    const char *main_header = "HTTP/1.0 200 OK\r\nServer: Martin Server\r\nContent-Type: text/html\r\nConnection: Close\r\n";
 
-    // write(client_socket, res_head, strlen(res_head));
-    // printf("%s\n", res_head);
+    char content_len[50] = {0};
+    char send_buf[64]; //要读的buff
+    int buff_size = sizeof(send_buf);
+    int size = 0; //文件大小
 
-    // if(!count) print_err("write 404");
+    //写请求头
+    int len = write(client_socket, main_header, strlen(main_header));
+
+    //计算文件大小
+    FILE *file = fopen(path, "r");
+    fseek(file, 0, SEEK_END);
+    size = ftell(file);
+    
+    sprintf(content_len, "Content-Length: %d\r\n\r\n", size);
+    write(client_socket, content_len, strlen(content_len));
+
+    //输出响应内容
+    rewind(file);
+    while(!feof(file)){
+        fread(send_buf, buff_size, 1, file);
+        write(client_socket, send_buf, buff_size);
+        if(ferror(file)) print_err("read file error");
+    }
+
+    fclose(file);
+
 }
